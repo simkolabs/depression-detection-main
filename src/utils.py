@@ -2,6 +2,8 @@ import os
 import re
 from nltk.stem import WordNetLemmatizer
 import pickle
+import shutil
+import moviepy.editor as mp
 import librosa
 import numpy as np
 import pandas as pd
@@ -53,9 +55,44 @@ class VideoModel():
 
     def __init__(self) -> None:
         self.emotions = ['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
+        self.dir()
+        #audio model files
+        json_file = open('models/voice_model/model.json', 'r')
+        loaded_model_json = json_file.read()
+        json_file.close()
+        self.loaded_model = model_from_json(loaded_model_json)
+        # load weights into new model
+        self.loaded_model.load_weights("models/voice_model/aug_noiseNshift_2class2_np.h5")
 
 
-    def predict_using_video(self,video_path):
+        #temp locations
+    def dir(self):
+        temp="temp/"
+        os.makedirs(temp,exist_ok=True)
+        source="temp/src_video"
+        os.makedirs(source,exist_ok=True)
+        drawing="temp/src_audio"
+        os.makedirs(drawing,exist_ok=True)
+
+
+    def save_file(self,file,path):
+        # file_details = {"FileName": image_file.name, "FileType": image_file.type}
+        file_location = f"{path}/{file.filename}"
+        with open(file_location, "wb+") as file_object:
+            shutil.copyfileobj(file.file, file_object)  
+
+
+
+    def predict_using_video(self,video_file):
+        #save files to tempory location
+        self.save_file(video_file,"temp/src_video")
+        video_path=f"temp/src_video/{video_file.filename}"
+        audio_path = f"temp/src_audio/audo.wav"
+
+        #save audio file
+        video = mp.VideoFileClip(video_path)
+        video.audio.write_audiofile(f"temp/src_audio/audo.wav")
+
         # But the Face detection detector
         face_detector = FER(mtcnn=True)
         # Input the video for processing
@@ -77,26 +114,55 @@ class VideoModel():
 
         score_comparisons = pd.DataFrame(self.emotions, columns = ['Human Emotions'])
         score_comparisons['Emotion Value from the Video'] = emotions_values
+       
 
-        return score_comparisons
+        #check dipression
+        pred_df=score_comparisons
+        angry=pred_df[pred_df['Human Emotions']=="Angry"]['Emotion Value from the Video'].values[0]
+        sad=pred_df[pred_df['Human Emotions']=="Sad"]['Emotion Value from the Video'].values[0]
+        happy=pred_df[pred_df['Human Emotions']=="Happy"]['Emotion Value from the Video'].values[0]
+        depression_level=((sad+angry)/20)
+        video_pred="Neutral"
+        if ((angry+sad)/2) > happy:
+            video_pred="Depressed"
+        else:
+            video_pred="Positive"
 
-
-# audio classification
-class AudioModel():
-    class_name = os.path.basename(__file__)
-
-    def __init__(self) -> None:
-        my_clip = mp.VideoFileClip("data/data.mp4")
-        my_clip.audio.write_audiofile("data/v1_audio.wav")
-
-        json_file = open('models/voice_model/model.json', 'r')
-        loaded_model_json = json_file.read()
-        json_file.close()
-        self.loaded_model = model_from_json(loaded_model_json)
-
-        # load weights into new model
-        self.loaded_model.load_weights("models/voice_model/aug_noiseNshift_2class2_np.h5")
+        pie_chart = pred_df.groupby(['Human Emotions']).sum().plot(
+                                                            kind='pie', 
+                                                            y='Emotion Value from the Video',
+                                                            figsize=(20,20),
+                                                            title="Emations Percentage Values")
+        
+        df = pd.read_csv("data.csv")
+        graph_1=df.plot.line(subplots=True, figsize=(20,20),title="Emotion Variations in Video")
+        graph_2=df.plot(figsize=(20,20),title="Emotion Variations in Video")
+        #save graphs
+        graphs="../graphs/"
+        os.makedirs(graphs,exist_ok=True)
+        graph_1[0].get_figure().savefig("../graphs/graph_1.png")
+        graph_2.get_figure().savefig("../graphs/graph_2.png")
+        pie_chart.get_figure().savefig("../graphs/pie_chart.png")
+        df.to_csv("output/data.csv")
+        pred_df.to_csv("output/completed_analysis.csv")
+        
+        
     
+        result= {"prediction_by_video":video_pred,
+                "depression_level":depression_level}
+
+        
+        #audio predictions
+        aud_pred=self.predict_audio(audio_path)
+        result["prediction_by_audio"]=aud_pred
+
+        #remove temp files
+        os.remove('data.csv')
+        video.close()
+        os.remove(video_path)
+        shutil.rmtree("temp")
+        return result
+
 
     def predict_audio(self, audio_path):
         model = self.loaded_model
@@ -126,5 +192,5 @@ class AudioModel():
             label = 'Depressive'
         elif abc == 1:
             label = 'Positive'
-        return (label)
 
+        return (label)
