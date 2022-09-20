@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from src.utils import MessageModel, VideoModel, AudioModel
 import pandas as pd
 import os
+import uvicorn
 
 app = FastAPI()
 
@@ -35,24 +36,24 @@ async def video():
     else:
         output="Positive"
 
-    pie_chart = pred_df.groupby(['Human Emotions']).sum().plot(
-                                                        kind='pie', 
-                                                        y='Emotion Value from the Video',
-                                                        figsize=(20,20),
-                                                        title="Emations Percentage Values")
+    # pie_chart = pred_df.groupby(['Human Emotions']).sum().plot(
+    #                                                     kind='pie', 
+    #                                                     y='Emotion Value from the Video',
+    #                                                     figsize=(20,20),
+    #                                                     title="Emations Percentage Values")
     
-    df = pd.read_csv("data.csv")
-    graph_1=df.plot.line(subplots=True, figsize=(20,20),title="Emotion Variations in Video")
-    graph_2=df.plot(figsize=(20,20),title="Emotion Variations in Video")
-    #save graphs
-    graphs="graphs/"
-    os.makedirs(graphs,exist_ok=True)
-    graph_1[0].get_figure().savefig("graphs/graph_1.png")
-    graph_2.get_figure().savefig("graphs/graph_2.png")
-    pie_chart.get_figure().savefig("graphs/pie_chart.png")
-    df.to_csv("output/data.csv")
-    pred_df.to_csv("output/completed_analysis.csv")
-    os.remove('data.csv')
+    # df = pd.read_csv("data.csv")
+    # graph_1=df.plot.line(subplots=True, figsize=(20,20),title="Emotion Variations in Video")
+    # graph_2=df.plot(figsize=(20,20),title="Emotion Variations in Video")
+    # #save graphs
+    # graphs="graphs/"
+    # os.makedirs(graphs,exist_ok=True)
+    # graph_1[0].get_figure().savefig("graphs/graph_1.png")
+    # graph_2.get_figure().savefig("graphs/graph_2.png")
+    # pie_chart.get_figure().savefig("graphs/pie_chart.png")
+    # df.to_csv("output/data.csv")
+    # pred_df.to_csv("output/completed_analysis.csv")
+    # os.remove('data.csv')
     #level will be in [0,10] range
     return [output,level]
 
@@ -64,3 +65,6 @@ async def audio():
    
     return response
 
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
