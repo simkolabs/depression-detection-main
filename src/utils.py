@@ -160,7 +160,8 @@ class VideoModel():
         os.remove('data.csv')
         video.close()
         os.remove(video_path)
-        shutil.rmtree("temp")
+        os.remove(audio_path)
+        # shutil.rmtree("temp")
         return result
 
 
